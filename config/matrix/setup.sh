@@ -53,12 +53,21 @@ cp "$SCRIPT_DIR/element-config.json" "$MATRIX_DIR/"
 
 # --- 4. Generate .env file ---
 if [ ! -f "$MATRIX_DIR/.env" ]; then
-  PG_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+  # Use alphanumeric-only password to avoid sed/shell escaping issues
+  PG_PASS=$(openssl rand -hex 16)
   cat > "$MATRIX_DIR/.env" << EOF
 MATRIX_SERVER_NAME=$SERVER_NAME
 POSTGRES_PASSWORD=$PG_PASS
 EOF
   echo ">>> Generated .env with random PostgreSQL password ✓"
+  echo ""
+  echo "╔════════════════════════════════════════════════════╗"
+  echo "║  ⚠️  BACK UP YOUR CREDENTIALS!                    ║"
+  echo "║  The .env file contains your database password.   ║"
+  echo "║  If the VM is lost, the database is unrecoverable.║"
+  echo "║  File: $MATRIX_DIR/.env                           ║"
+  echo "╚════════════════════════════════════════════════════╝"
+  echo ""
 else
   echo ">>> .env already exists, updating MATRIX_SERVER_NAME..."
   sed -i "s|^MATRIX_SERVER_NAME=.*|MATRIX_SERVER_NAME=$SERVER_NAME|" "$MATRIX_DIR/.env"
@@ -70,18 +79,22 @@ source "$MATRIX_DIR/.env"
 set +a
 
 # --- 5. Update element-config.json with actual server name ---
+# Always copy from template to make this idempotent
+cp "$SCRIPT_DIR/element-config.json" "$MATRIX_DIR/element-config.json"
 sed -i "s|MATRIX_SERVER_NAME_PLACEHOLDER|$SERVER_NAME|g" "$MATRIX_DIR/element-config.json"
 echo ">>> Updated element-config.json with $SERVER_NAME ✓"
 
 # --- 6. Generate Synapse config ---
 cd "$MATRIX_DIR"
-if [ ! -f "$MATRIX_DIR/synapse-data/homeserver.yaml" ] 2>/dev/null; then
+SYNAPSE_GENERATED_MARKER="$MATRIX_DIR/.synapse-generated"
+if [ ! -f "$SYNAPSE_GENERATED_MARKER" ]; then
   echo ">>> Generating Synapse configuration..."
   docker run --rm \
     -v matrix_synapse-data:/data \
     -e SYNAPSE_SERVER_NAME="$SERVER_NAME" \
     -e SYNAPSE_REPORT_STATS=no \
     matrixdotorg/synapse:latest generate
+  touch "$SYNAPSE_GENERATED_MARKER"
   echo ">>> Synapse config generated ✓"
 else
   echo ">>> Synapse config already exists ✓"

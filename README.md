@@ -53,3 +53,9 @@ docker exec -it synapse register_new_matrix_user -c /data/homeserver.yaml http:/
 - [ ] Configure federation
 - [ ] Set up bridges (Discord, Slack, etc.)
 - [ ] Backups (PostgreSQL + Synapse media)
+
+## ⚠️ Credential Backup
+
+The `setup.sh` script generates a `.env` file on the VM at `~/matrix/.env` containing the PostgreSQL password. **If the VM is lost, the database is unrecoverable.**
+
+Back up `~/matrix/.env` somewhere secure (e.g., Azure Key Vault, a password manager, or a local encrypted file).

@@ -10,6 +10,7 @@ synapse-data/
 pgdata/
 caddy-data/
 caddy-config/
+.synapse-generated
 
 # OS
 .DS_Store
