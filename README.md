@@ -1,4 +1,4 @@
-# my-matrix
+# my-matrix-element
 
 Matrix + Element deployment for the existing OpenClaw VM (`Standard_B2pls_v2`, ARM64, Ubuntu 24.04).
 

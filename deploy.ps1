@@ -27,6 +27,7 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
 $OpenClawRepo = Join-Path (Split-Path $RepoRoot) "my-openclaw"
+# Note: this repo is "my-matrix-element"
 $ConfigDir = Join-Path $RepoRoot "config\matrix"
 $ResourceGroup = "openclaw-rg"
 
