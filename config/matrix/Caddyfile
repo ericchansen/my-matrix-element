@@ -1,0 +1,32 @@
+# Caddyfile — Reverse proxy for Matrix Synapse + Element Web
+# Replace {$MATRIX_SERVER_NAME} with your domain (set via .env or environment)
+#
+# Caddy auto-provisions TLS via Let's Encrypt.
+# For Azure FQDN (*.cloudapp.azure.com), this should work automatically.
+
+{$MATRIX_SERVER_NAME} {
+	# Synapse client + federation API
+	# All /_matrix/* and /_synapse/* paths go to Synapse
+	handle /_matrix/* {
+		reverse_proxy synapse:8008
+	}
+	handle /_synapse/* {
+		reverse_proxy synapse:8008
+	}
+
+	# .well-known delegation for Matrix federation and client discovery
+	handle /.well-known/matrix/server {
+		header Content-Type "application/json"
+		respond `{"m.server": "{$MATRIX_SERVER_NAME}:443"}`
+	}
+	handle /.well-known/matrix/client {
+		header Content-Type "application/json"
+		header Access-Control-Allow-Origin "*"
+		respond `{"m.homeserver": {"base_url": "https://{$MATRIX_SERVER_NAME}"}}`
+	}
+
+	# Everything else goes to Element Web
+	handle {
+		reverse_proxy element:80
+	}
+}

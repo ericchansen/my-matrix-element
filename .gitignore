@@ -1,0 +1,16 @@
+# .gitignore for my-matrix
+
+# Secrets and env files
+.env
+*.env
+secrets/
+
+# Synapse data (generated on VM, not tracked)
+synapse-data/
+pgdata/
+caddy-data/
+caddy-config/
+
+# OS
+.DS_Store
+Thumbs.db

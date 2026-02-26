@@ -1,0 +1,16 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://MATRIX_SERVER_NAME_PLACEHOLDER",
+      "server_name": "MATRIX_SERVER_NAME_PLACEHOLDER"
+    }
+  },
+  "brand": "Element",
+  "default_theme": "dark",
+  "room_directory": {
+    "servers": [
+      "MATRIX_SERVER_NAME_PLACEHOLDER"
+    ]
+  },
+  "show_labs_settings": true
+}
