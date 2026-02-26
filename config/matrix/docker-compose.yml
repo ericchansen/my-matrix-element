@@ -76,6 +76,18 @@ services:
     networks:
       - matrix
 
+  mautrix-discord:
+    image: dock.mau.dev/mautrix/discord:latest
+    container_name: mautrix-discord
+    restart: unless-stopped
+    volumes:
+      - ./mautrix-discord:/data:z
+    networks:
+      - matrix
+    depends_on:
+      synapse:
+        condition: service_healthy
+
 volumes:
   synapse-data:
   pgdata:

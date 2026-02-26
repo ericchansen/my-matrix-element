@@ -154,12 +154,73 @@ YAMLEOF
   "
 echo ">>> Synapse configured for PostgreSQL ✓"
 
-# --- 8. Start the stack ---
+# --- 8. Set up mautrix-discord bridge ---
+DISCORD_DIR="$MATRIX_DIR/mautrix-discord"
+if [ ! -f "$DISCORD_DIR/config.yaml" ]; then
+  echo ">>> Setting up Discord bridge..."
+  mkdir -p "$DISCORD_DIR"
+
+  # Create a separate database for the bridge
+  docker exec matrix-postgres psql -U synapse -c "SELECT 1 FROM pg_database WHERE datname='mautrix_discord'" | grep -q 1 || \
+    docker exec matrix-postgres psql -U synapse -c "CREATE DATABASE mautrix_discord OWNER synapse;"
+  echo ">>> Discord bridge database ready ✓"
+
+  # Generate default config
+  docker run --rm -v "$DISCORD_DIR:/data:z" dock.mau.dev/mautrix/discord:latest
+  echo ">>> Discord bridge default config generated ✓"
+
+  # Patch the config for our setup
+  sed -i "s|address: https://matrix-client.matrix.org|address: http://synapse:8008|" "$DISCORD_DIR/config.yaml"
+  sed -i "s|domain: matrix.org|domain: $SERVER_NAME|" "$DISCORD_DIR/config.yaml"
+  sed -i "s|address: http://localhost:29334|address: http://mautrix-discord:29334|" "$DISCORD_DIR/config.yaml"
+  # Configure bridge to use PostgreSQL
+  sed -i "s|uri: sqlite:///data/mautrix-discord.db|uri: postgres://synapse:${POSTGRES_PASSWORD}@matrix-postgres/mautrix_discord?sslmode=disable|" "$DISCORD_DIR/config.yaml"
+  # Set permissions so our admin can use the bridge
+  sed -i "s|\"\\*\": relay|\"$SERVER_NAME\": user\n        \"@eric:$SERVER_NAME\": admin|" "$DISCORD_DIR/config.yaml"
+
+  echo ">>> Discord bridge config patched ✓"
+
+  # Generate the appservice registration file
+  docker run --rm -v "$DISCORD_DIR:/data:z" dock.mau.dev/mautrix/discord:latest
+  echo ">>> Discord bridge registration generated ✓"
+
+  # Register the bridge with Synapse
+  docker run --rm \
+    -v matrix_synapse-data:/data \
+    -v "$DISCORD_DIR/registration.yaml:/bridge-registration.yaml:ro" \
+    --entrypoint /bin/sh \
+    matrixdotorg/synapse:latest -c "
+      mkdir -p /data/bridges
+      cp /bridge-registration.yaml /data/bridges/mautrix-discord.yaml
+      if ! grep -q 'app_service_config_files' /data/homeserver.yaml; then
+        cat >> /data/homeserver.yaml << 'YAMLEOF'
+
+app_service_config_files:
+  - /data/bridges/mautrix-discord.yaml
+YAMLEOF
+        echo 'Registered Discord bridge with Synapse'
+      elif ! grep -q 'mautrix-discord' /data/homeserver.yaml; then
+        sed -i '/app_service_config_files:/a\\  - /data/bridges/mautrix-discord.yaml' /data/homeserver.yaml
+        echo 'Added Discord bridge to existing appservice list'
+      else
+        echo 'Discord bridge already registered'
+      fi
+    "
+  echo ">>> Discord bridge registered with Synapse ✓"
+else
+  echo ">>> Discord bridge already configured ✓"
+fi
+
+# --- 9. Start the stack ---
 echo ">>> Starting Matrix stack..."
 docker compose up -d
 echo ""
 
-# --- 9. Wait for Synapse to be ready ---
+# Restart Synapse to pick up the bridge registration
+docker compose restart synapse
+echo ">>> Synapse restarted to load bridge ✓"
+
+# --- 10. Wait for Synapse to be ready ---
 echo ">>> Waiting for Synapse to start..."
 for i in $(seq 1 30); do
   if docker exec synapse curl -sf http://localhost:8008/_matrix/client/versions > /dev/null 2>&1; then
@@ -174,7 +235,7 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# --- 10. Done! ---
+# --- 12. Done! ---
 echo ""
 echo "============================================"
 echo "  Matrix + Element is running! 🎉"
@@ -183,8 +244,11 @@ echo ""
 echo "  Element Web:  https://$SERVER_NAME"
 echo "  Synapse API:  https://$SERVER_NAME/_matrix/client/versions"
 echo ""
-echo "  Create your first admin user:"
-echo "    docker exec -it synapse register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008"
+echo "  Discord Bridge:"
+echo "    1. Open Element, start a chat with @discordbot:$SERVER_NAME"
+echo "    2. Send: login-token"
+echo "    3. Follow the link to authorize with Discord"
+echo "    4. Your Discord servers will appear as Matrix rooms!"
 echo ""
 echo "  View logs:"
 echo "    docker compose -f $MATRIX_DIR/docker-compose.yml logs -f"
