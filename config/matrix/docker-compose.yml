@@ -65,8 +65,8 @@ services:
     container_name: matrix-caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "10.0.0.4:80:80"
+      - "10.0.0.4:443:443"
     environment:
       - MATRIX_SERVER_NAME=${MATRIX_SERVER_NAME}
     volumes:
